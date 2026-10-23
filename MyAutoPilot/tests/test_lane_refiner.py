@@ -103,6 +103,143 @@ class LaneRefinerTests(unittest.TestCase):
         self.assertEqual(refiner.tracking_frames , 6)
         self.assertEqual(refiner.prev_lane_width , [[260 , y] for y in range(320 , 199 , -1)])
 
+    def test_fitted_curvature_uses_absolute_second_derivative(self):
+        for coefficient in (-0.002 , 0.002):
+            with self.subTest(coefficient = coefficient):
+                refiner = LaneRefiner(200 , 320 , 10 , 200 , 248)
+                sample_points = [[220 + coefficient * (y - 260) ** 2 , y] for y in range(200 , 321 , 4)]
+                lane_points = refiner.fit_lane_points(sample_points , 352 , 640 , 2 , "CL")
+                self.assertTrue(lane_points)
+                self.assertAlmostEqual(refiner.lane_curvature["CL"] , 0.004)
+
+    def test_failed_fit_clears_only_current_lane_curvature(self):
+        refiner = LaneRefiner(200 , 320 , 10 , 200 , 248)
+        self.assertEqual(refiner.lane_curvature , {"CL" : None , "CR" : None , "NL" : None , "NR" : None})
+        refiner.lane_curvature["CR"] = 0.003
+        sample_points = [[220 + 0.002 * (y - 260) ** 2 , y] for y in range(200 , 321 , 4)]
+        for missing_points in ([] , [[220 , 250] , [221 , 260] , [222 , 270]]):
+            with self.subTest(missing_points = missing_points):
+                refiner.fit_lane_points(sample_points , 352 , 640 , 2 , "CL")
+                self.assertAlmostEqual(refiner.lane_curvature["CL"] , 0.004)
+                self.assertEqual(refiner.fit_lane_points(missing_points , 352 , 640 , 2 , "CL") , [])
+                self.assertIsNone(refiner.lane_curvature["CL"])
+                self.assertEqual(refiner.lane_curvature["CR"] , 0.003)
+
+    def test_width_accepts_narrowing_and_rounding_platforms(self):
+        refiner = LaneRefiner(200 , 320 , 10 , 200 , 248)
+        refiner.tracking_frames = 5
+        cl_lane_points = [[200 , y] for y in range(320 , 199 , -1)]
+        cr_lane_points = [[400 - (320 - y) // 3 , y] for y in range(320 , 199 , -1)]
+        refiner.update_lane_width(cl_lane_points , cr_lane_points)
+        self.assertFalse(refiner.abnormal_width)
+        self.assertEqual(refiner.prev_lane_width , [[200 - (320 - y) // 3 , y] for y in range(320 , 199 , -1)])
+
+    def test_width_anomaly_counts_adjacent_increases_above_ten_percent(self):
+        cases = [
+            ([200 , 201 , 200 , 199 , 198 , 197 , 196 , 195 , 194 , 193 , 192] , False) ,
+            ([200 , 201 , 202 , 201 , 200 , 199 , 198 , 197 , 196 , 195 , 194] , True) ,
+            ([200 , 201 , 200 , 199 , 198 , 197 , 196 , 195 , 194 , 193] , True)
+        ]
+        for widths , expected in cases:
+            with self.subTest(widths = widths):
+                refiner = LaneRefiner(200 , 320 , 10 , 200 , 248)
+                refiner.tracking_frames = 5
+                previous_width = [[240 , 320 - i] for i in range(len(widths))]
+                refiner.prev_lane_width = previous_width[:]
+                cl_lane_points = [[200 , 320 - i] for i in range(len(widths))]
+                cr_lane_points = [[200 + lane_width , 320 - i] for i , lane_width in enumerate(widths)]
+                refiner.update_lane_width(cl_lane_points , cr_lane_points)
+                self.assertEqual(refiner.abnormal_width , expected)
+                if expected:
+                    self.assertEqual(refiner.prev_lane_width , previous_width)
+                else:
+                    self.assertEqual(refiner.prev_lane_width , [[lane_width , 320 - i] for i , lane_width in enumerate(widths)])
+
+    def test_intersection_prediction_selects_minimum_or_maximum_curvature_side(self):
+        cases = [
+            ("min" , 0.001 , 0.004 , "CL") ,
+            ("min" , 0.004 , 0.001 , "CR") ,
+            ("max" , 0.001 , 0.004 , "CR") ,
+            ("max" , 0.004 , 0.001 , "CL")
+        ]
+        for selection , cl_curvature , cr_curvature , selected_side in cases:
+            with self.subTest(selection = selection , selected_side = selected_side):
+                refiner = LaneRefiner(200 , 320 , 10 , 200 , 248)
+                refiner.tracking_frames = 5
+                previous_width = [[200 , y] for y in range(320 , 199 , -1)]
+                refiner.prev_lane_width = previous_width[:]
+                refiner.lane_curvature["CL"] = cl_curvature
+                refiner.lane_curvature["CR"] = cr_curvature
+                cl_lane_points = [[200 , y] for y in range(320 , 199 , -1)]
+                cr_lane_points = [[400 + 320 - y , y] for y in range(320 , 199 , -1)]
+                with patch("MyAutoPilot.lane_refiner.select_lane_curvature" , selection):
+                    center_points = refiner.calculate_center_points(cl_lane_points , cr_lane_points)
+                if selected_side == "CL":
+                    self.assertEqual(center_points , [[300 , y] for y in range(320 , 199 , -1)])
+                else:
+                    self.assertEqual(center_points , [[300 + 320 - y , y] for y in range(320 , 199 , -1)])
+                self.assertTrue(refiner.abnormal_width)
+                self.assertEqual(refiner.prev_lane_width , previous_width)
+                self.assertEqual(refiner.status["center"] , "predicted")
+
+    def test_intersection_prediction_requires_curvature_and_abnormal_width(self):
+        cases = [(False , 0.004) , (True , 0.001) , (True , 0.002)]
+        for abnormal_width , curvature in cases:
+            with self.subTest(abnormal_width = abnormal_width , curvature = curvature):
+                refiner = LaneRefiner(200 , 320 , 10 , 200 , 248)
+                refiner.tracking_frames = 5
+                refiner.prev_lane_width = [[180 , y] for y in range(320 , 199 , -1)]
+                refiner.lane_curvature["CL"] = 0.001
+                refiner.lane_curvature["CR"] = curvature
+                cl_lane_points = [[200 , y] for y in range(320 , 199 , -1)]
+                if abnormal_width:
+                    cr_lane_points = [[400 + 320 - y , y] for y in range(320 , 199 , -1)]
+                    expected = [[(600 + 320 - y) // 2 , y] for y in range(320 , 199 , -1)]
+                else:
+                    cr_lane_points = [[400 , y] for y in range(320 , 199 , -1)]
+                    expected = [[300 , y] for y in range(320 , 199 , -1)]
+                center_points = refiner.calculate_center_points(cl_lane_points , cr_lane_points)
+                self.assertEqual(refiner.abnormal_width , abnormal_width)
+                self.assertEqual(center_points , expected)
+                self.assertEqual(refiner.status["center"] , "accurate")
+
+    def test_intersection_without_previous_width_has_no_center(self):
+        refiner = LaneRefiner(200 , 320 , 10 , 200 , 248)
+        refiner.tracking_frames = 5
+        refiner.lane_curvature["CL"] = 0.001
+        refiner.lane_curvature["CR"] = 0.004
+        cl_lane_points = [[200 , y] for y in range(320 , 199 , -1)]
+        cr_lane_points = [[400 + 320 - y , y] for y in range(320 , 199 , -1)]
+        self.assertEqual(refiner.calculate_center_points(cl_lane_points , cr_lane_points) , [])
+        self.assertEqual(refiner.status["center"] , "missing")
+        self.assertEqual(refiner.prev_lane_width , [])
+
+    def test_intersection_recovers_before_history_can_update(self):
+        refiner = LaneRefiner(200 , 320 , 10 , 200 , 248)
+        refiner.tracking_frames = 2
+        previous_width = [[200 , y] for y in range(320 , 199 , -1)]
+        refiner.prev_lane_width = previous_width[:]
+        refiner.lane_curvature["CL"] = 0.001
+        refiner.lane_curvature["CR"] = 0.004
+        cl_lane_points = [[200 , y] for y in range(320 , 199 , -1)]
+        cr_lane_points = [[400 + 320 - y , y] for y in range(320 , 199 , -1)]
+        center_points = refiner.calculate_center_points(cl_lane_points , cr_lane_points)
+        self.assertTrue(refiner.abnormal_width)
+        self.assertEqual(center_points , [[300 , y] for y in range(320 , 199 , -1)])
+        self.assertEqual(refiner.prev_lane_width , previous_width)
+
+        refiner.tracking_frames = 3
+        cr_lane_points = [[440 , y] for y in range(320 , 199 , -1)]
+        center_points = refiner.calculate_center_points(cl_lane_points , cr_lane_points)
+        self.assertFalse(refiner.abnormal_width)
+        self.assertEqual(center_points , [[320 , y] for y in range(320 , 199 , -1)])
+        self.assertEqual(refiner.status["center"] , "accurate")
+        self.assertEqual(refiner.prev_lane_width , previous_width)
+
+        refiner.tracking_frames = 5
+        refiner.calculate_center_points(cl_lane_points , cr_lane_points)
+        self.assertEqual(refiner.prev_lane_width , [[240 , y] for y in range(320 , 199 , -1)])
+
     def test_missing_lane_restarts_count_and_preserves_width(self):
         for missing in ("CL" , "CR" , "both"):
             with self.subTest(missing = missing):
