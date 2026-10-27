@@ -49,13 +49,9 @@
 
 ### 真实界面，不止是模型输出
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="UI/preview-dark.jpg">
-  <source media="(prefers-color-scheme: light)" srcset="UI/demo.jpg">
-  <img src="UI/preview-dark.jpg" alt="26SV 驾驶感知控制台：车道、规划路径、目标跟踪、车辆状态与日志时间轴" width="100%">
-</picture>
+<img src="docs/assets/dashboard.jpg" alt="26SV 驾驶感知控制台：车道、规划路径、卡车跟踪、当前与目标速度及日志时间轴" width="100%">
 
-<p align="center"><sub>仓库内的历史回放截图 · 支持深浅主题 · 截图中的速度和帧率是单帧记录，不代表性能基准</sub></p>
+<p align="center"><sub>驾驶感知控制台 · 历史运行回放 · 截图中的速度和帧率是单帧记录，不代表性能基准</sub></p>
 
 控制台将图像坐标中的车道、路径和检测框画在同一视图里，也能显示原程序的 `Result` 窗口。它只读取现有输出；网页上的暂停仅暂停显示。历史日志不包含视频，回放展示的是记录的结构与状态。详见 [控制台说明](UI/README.md)。
 
@@ -274,7 +270,9 @@ PC V2 权重与曲线写入 `NetTrainer/pixel_classifier_v2/`；检测器的 `od
 Universal-Autopilot/
 ├── README.md / README.en.md         # 中英文项目说明
 ├── requirements.txt                # 推理、训练与可视化依赖
-├── docs/assets/hero.svg             # README 封面
+├── docs/assets/
+│   ├── hero.svg                     # README 封面
+│   └── dashboard.jpg                # 真实界面截图
 ├── Models/
 │   ├── pc_v2.py                     # 共享编码器、解码器与道路 / 车道分割头
 │   └── od_Lite.py                   # Lite 三类目标检测网络

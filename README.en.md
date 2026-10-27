@@ -49,13 +49,9 @@ On an **NVIDIA GeForce RTX 4080 Laptop GPU (12 GB VRAM)**, the author reports th
 
 ### A real interface, beyond model outputs
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="UI/preview-dark.jpg">
-  <source media="(prefers-color-scheme: light)" srcset="UI/demo.jpg">
-  <img src="UI/preview-dark.jpg" alt="26SV perception dashboard with lanes, a planned path, tracked objects, vehicle state and a replay timeline" width="100%">
-</picture>
+<img src="docs/assets/dashboard.jpg" alt="26SV perception dashboard with lanes, a planned path, truck tracking, current and target speeds, and a replay timeline" width="100%">
 
-<p align="center"><sub>Recorded-run screenshot from the repository · Light and dark themes · Speed and FPS are single-frame values, not benchmark results</sub></p>
+<p align="center"><sub>Driving perception dashboard · Recorded-run replay · Speed and FPS are single-frame values, not benchmark results</sub></p>
 
 The dashboard draws lanes, paths and detections in image coordinates and can also display the runtime’s `Result` window. It reads existing outputs; pausing the webpage only pauses its display. Historical logs contain geometry and state, not recorded video. See the [dashboard guide](UI/README.md) (Chinese) for details.
 
@@ -274,7 +270,9 @@ PC V2 saves weights and curves under `NetTrainer/pixel_classifier_v2/`. The dete
 Universal-Autopilot/
 ├── README.md / README.en.md         # Chinese and English project guides
 ├── requirements.txt                # Inference, training and plotting dependencies
-├── docs/assets/hero.svg             # README banner
+├── docs/assets/
+│   ├── hero.svg                     # README banner
+│   └── dashboard.jpg                # Actual dashboard screenshot
 ├── Models/
 │   ├── pc_v2.py                     # Shared encoder, decoder and road / lane heads
 │   └── od_Lite.py                   # Lite three-class detection network
