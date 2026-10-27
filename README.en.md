@@ -51,38 +51,24 @@ The dashboard draws lanes, paths and detections in image coordinates and can als
 ## From pixels to control
 
 ```mermaid
-flowchart LR
+flowchart TD
     A[ETS2 game view] --> B[MSS window capture]
-    B --> C[PC V2 dual-head segmentation]
-    B --> D[Lite three-class detector]
-    C --> E[Lane refinement]
-    C --> D
-    E --> F[Center path / lane-change planning]
-    F --> G[Look-ahead steering]
-    D --> H[Tracking / visual TTC braking]
-    E --> H
-    T[SCS vehicle telemetry] --> G
-    T --> I[Target-speed PI throttle]
-    F --> I
-    H --> I
-    G --> J[Virtual Xbox 360 gamepad]
-    H --> J
-    I --> J
-    J --> A
-    E -.-> K[JSONL logs]
-    F -.-> K
-    H -.-> K
-    T -.-> K
-    G -.-> K
-    I -.-> K
-    K --> L[Local dashboard / replay]
+    B --> C[PC V2 road / lane segmentation]
+    B --> D[Lite detection / tracking]
+    C --> E[Lane refinement / path planning]
+    E --> F[Steering / throttle / braking]
+    D --> F
+    T[SCS vehicle telemetry] --> F
+    F --> G[Virtual gamepad → ETS2]
+    E -.-> H[JSONL logs / dashboard replay]
+    F -.-> H
 
     classDef vision fill:#15252B,stroke:#87D7CB,color:#E6F7F3
     classDef control fill:#202A1B,stroke:#BBE58A,color:#EDF7E5
     classDef inspect fill:#24232E,stroke:#B6AED6,color:#F0ECFA
-    class B,C,D,E vision
-    class F,G,H,I,J control
-    class K,L inspect
+    class B,C,D vision
+    class E,F,G control
+    class H inspect
 ```
 
 Vision handles road and object perception; SCS telemetry supplies vehicle state such as speed. Steering and lane-change paths use image coordinates, while TTC is estimated from changes in object bounding boxes.

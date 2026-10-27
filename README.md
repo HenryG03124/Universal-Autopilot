@@ -51,38 +51,24 @@
 ## 从像素到控制
 
 ```mermaid
-flowchart LR
+flowchart TD
     A[ETS2 游戏画面] --> B[MSS 窗口捕获]
-    B --> C[PC V2 双头分割]
-    B --> D[Lite 三类检测]
-    C --> E[车道拟合]
-    C --> D
-    E --> F[中心路径 / 换道规划]
-    F --> G[预瞄转向]
-    D --> H[目标跟踪 / 视觉 TTC 制动]
-    E --> H
-    T[SCS 车辆遥测] --> G
-    T --> I[目标速度 PI 油门]
-    F --> I
-    H --> I
-    G --> J[虚拟 Xbox 360 手柄]
-    H --> J
-    I --> J
-    J --> A
-    E -.-> K[JSONL 日志]
-    F -.-> K
-    H -.-> K
-    T -.-> K
-    G -.-> K
-    I -.-> K
-    K --> L[本地控制台 / 历史回放]
+    B --> C[PC V2 道路 / 车道分割]
+    B --> D[Lite 目标检测 / 跟踪]
+    C --> E[车道拟合 / 路径规划]
+    E --> F[转向 / 油门 / 制动]
+    D --> F
+    T[SCS 车辆遥测] --> F
+    F --> G[虚拟手柄 → ETS2]
+    E -.-> H[JSONL 日志 / 控制台回放]
+    F -.-> H
 
     classDef vision fill:#15252B,stroke:#87D7CB,color:#E6F7F3
     classDef control fill:#202A1B,stroke:#BBE58A,color:#EDF7E5
     classDef inspect fill:#24232E,stroke:#B6AED6,color:#F0ECFA
-    class B,C,D,E vision
-    class F,G,H,I,J control
-    class K,L inspect
+    class B,C,D vision
+    class E,F,G control
+    class H inspect
 ```
 
 视觉负责道路与目标感知，SCS 遥测提供车速等车辆状态。转向与换道路径在图像坐标中计算；TTC 来自目标框变化的估计。
