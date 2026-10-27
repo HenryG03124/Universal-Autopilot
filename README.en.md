@@ -268,71 +268,19 @@ PC V2 saves weights and curves under `NetTrainer/pixel_classifier_v2/`. The dete
 
 ```text
 Universal-Autopilot/
-├── README.md / README.en.md         # Chinese and English project guides
-├── requirements.txt                # Inference, training and plotting dependencies
-├── docs/assets/
-│   ├── hero.svg                     # README banner
-│   └── dashboard.jpg                # Actual dashboard screenshot
-├── Models/
-│   ├── pc_v2.py                     # Shared encoder, decoder and road / lane heads
-│   └── od_Lite.py                   # Lite three-class detection network
-├── MyAutoPilot/
-│   ├── main.py                      # Runtime loop, parameters and module wiring
-│   ├── screen_capture.py            # MSS window / screen capture and Win32 lookup
-│   ├── scs_telemetry.py              # Read-only SCS revision 12 ego telemetry
-│   ├── pixel_classifier_v2.py        # Preprocessing, dual-head inference and mask fusion
-│   ├── object_detector.py           # Detection, confidence filtering, NMS and mask filtering
-│   ├── mov_detector.py              # Image-space object association, IDs and relative motion
-│   ├── lane_refiner.py              # Lane sampling, fitting, availability and center points
-│   ├── route_planner.py             # Lane-centering / lane-change path and state selection
-│   ├── lane_change.py               # Lane-change requests, transition paths and exit conditions
-│   ├── steering.py                  # Speed-dependent image-space look-ahead steering
-│   ├── throttle.py                  # Target speed management and PI throttle
-│   ├── auto_brakes.py               # In-lane target selection, visual TTC and brake requests
-│   ├── input_controller.py          # Virtual Xbox 360 steering, throttle and brake output
-│   ├── auto_config.py               # Optional ETS2 steering setup and controls.sii backup
-│   ├── draw.py                      # Perception overlays and status in the Result window
-│   ├── logger.py                    # Per-frame JSONL logging with timestamps
-│   ├── weights/
-│   │   ├── pc_model_v2_bdd100k.pth   # Current segmentation weights
-│   │   ├── od_model_Lite.pth         # Current detector weights
-│   │   └── yolo26n.pt               # Retained YOLO26 weights; unused by the current entry point
-│   ├── tests/
-│   │   ├── test_*.py                # Offline lane, planning, control, setup and pipeline tests
-│   │   ├── profile_pipeline.py      # Stage timing without sending driving commands
-│   │   └── replay_steering.py       # Recompute steering from recorded perception and compare
-│   └── logs/                       # Generated at runtime; ignored by Git
-├── NetTrainer/
-│   ├── pixel_classifier_v2/
-│   │   ├── pc_v2_bdd100k_ds.py       # Road / lane CSV, image and mask loading
-│   │   ├── prepare_pc_v2_bdd100k_ds.py # BDD100K lane annotations to masks and manifests
-│   │   ├── train.py                 # Dual-task training, validation, saving and plotting
-│   │   ├── test.py                  # Single-image segmentation and mask export
-│   │   ├── pc_model_v2_bdd100k.pth   # Segmentation weights in the training directory
-│   │   └── figure_v2_bdd100k.png     # Saved training curves
-│   ├── object_detector/
-│   │   ├── bdd_objdetect_ds.py       # Images, detection JSON and variable-length target batches
-│   │   ├── train_Lite.py             # Three-class training, AP50 evaluation and saving
-│   │   ├── test_Lite.py              # Single-image detection visualization
-│   │   ├── figure_Lite.png           # Saved training curves
-│   │   └── README.md                 # Detection labels, input formats and losses
-│   ├── pixel_classifier/            # Earlier LiteCNN / ResNet / U-Net experiments
-│   │   ├── bdd_pc_ds.py              # Earlier road / car segmentation data loading
-│   │   ├── train_*.py / test_*.py     # Earlier training and single-image tests
-│   │   └── *.pth / *.png / *.jpg     # Saved weights, curves and examples
-│   └── datasets/                    # Local raw data and processed_* manifests; ignored by Git
-└── UI/
-    ├── server.py                    # Local HTTP server, log indexing and Result capture
-    ├── index.html                   # Dashboard page structure
-    ├── app.js                       # Data requests, perception rendering, state and replay
-    ├── style.css                    # Layout and light / dark themes
-    ├── start.bat                    # Windows launcher
-    ├── test_server.py               # Log reading, replay and path-boundary tests
-    ├── README.md                    # Dashboard guide
-    └── *.jpg / favicon.svg          # Interface previews and icon
+├── Models/                    # Shared PC V2 / Lite Detector definitions
+├── MyAutoPilot/                # Capture → perception → planning → control
+│   ├── main.py                # Runtime entry point and parameters
+│   ├── weights/               # Included inference weights
+│   ├── tests/                 # Offline tests, replay and profiling tools
+│   └── logs/                  # Generated at runtime; ignored by Git
+├── NetTrainer/                # Data loading, training, validation and plots
+│   ├── pixel_classifier/      # Earlier segmentation experiments
+│   ├── pixel_classifier_v2/   # Current dual-head segmentation training
+│   ├── object_detector/       # Three-class detection training
+│   └── datasets/              # Local training data; ignored by Git
+└── UI/                        # Local driving perception dashboard
 ```
-
-Single-image tools require test images and weights at the paths specified in their scripts. Profiling and replay tools support local diagnostics; they do not automatically reproduce the YOLO26 / Lite comparison above.
 
 To understand a driving decision, start at [`main.py`](MyAutoPilot/main.py), trace [`lane_refiner.py`](MyAutoPilot/lane_refiner.py) → [`route_planner.py`](MyAutoPilot/route_planner.py) → [`steering.py`](MyAutoPilot/steering.py), then compare the log’s `path_points`, `steering_debug` and `brake_reason` fields.
 
