@@ -268,11 +268,6 @@ PC V2 权重与曲线写入 `NetTrainer/pixel_classifier_v2/`；检测器的 `od
 
 ```text
 Universal-Autopilot/
-├── README.md / README.en.md         # 中英文项目说明
-├── requirements.txt                # 推理、训练与可视化依赖
-├── docs/assets/
-│   ├── hero.svg                     # README 封面
-│   └── dashboard.jpg                # 真实界面截图
 ├── Models/
 │   ├── pc_v2.py                     # 共享编码器、解码器与道路 / 车道分割头
 │   └── od_Lite.py                   # Lite 三类目标检测网络
@@ -294,42 +289,10 @@ Universal-Autopilot/
 │   ├── draw.py                      # Result 窗口的感知叠加与状态显示
 │   ├── logger.py                    # 按帧写入带时间信息的 JSONL
 │   ├── weights/
-│   │   ├── pc_model_v2_bdd100k.pth   # 当前分割权重
-│   │   ├── od_model_Lite.pth         # 当前检测权重
-│   │   └── yolo26n.pt               # 保留的 YOLO26 权重；当前入口不加载
-│   ├── tests/
-│   │   ├── test_*.py                # 车道、规划、控制、配置与主流程离线测试
-│   │   ├── profile_pipeline.py      # 分阶段计时；不输出游戏控制
-│   │   └── replay_steering.py       # 用历史感知记录重算转向并比较指标
-│   └── logs/                       # 运行时生成，Git 忽略
 ├── NetTrainer/
 │   ├── pixel_classifier_v2/
-│   │   ├── pc_v2_bdd100k_ds.py       # 道路 / 车道 CSV、图像与掩码读取
-│   │   ├── prepare_pc_v2_bdd100k_ds.py # BDD100K 车道标注转掩码与清单
-│   │   ├── train.py                 # 双任务训练、验证、保存与绘图
-│   │   ├── test.py                  # 单图分割与掩码导出
-│   │   ├── pc_model_v2_bdd100k.pth   # 训练目录中的分割权重
-│   │   └── figure_v2_bdd100k.png     # 已保存的训练曲线
 │   ├── object_detector/
-│   │   ├── bdd_objdetect_ds.py       # 图像、检测 JSON 与变长目标 batch
-│   │   ├── train_Lite.py             # 三类检测训练、AP50 等验证与保存
-│   │   ├── test_Lite.py              # 单图检测可视化
-│   │   ├── figure_Lite.png           # 已保存的训练曲线
-│   │   └── README.md                 # 检测标签、输入格式与损失说明
-│   ├── pixel_classifier/            # 早期 LiteCNN / ResNet / U-Net 实验
-│   │   ├── bdd_pc_ds.py              # 早期道路 / 车辆分割数据读取
-│   │   ├── train_*.py / test_*.py     # 早期训练与单图测试
-│   │   └── *.pth / *.png / *.jpg     # 已保存权重、曲线与示例
-│   └── datasets/                    # 本地原始数据与 processed_* 清单，Git 忽略
 └── UI/
-    ├── server.py                    # 本地 HTTP 服务、日志索引与 Result 截图
-    ├── index.html                   # 控制台页面结构
-    ├── app.js                       # 数据请求、感知绘制、状态与回放交互
-    ├── style.css                    # 布局与深浅主题
-    ├── start.bat                    # Windows 启动入口
-    ├── test_server.py               # 日志读取、回放与路径边界测试
-    ├── README.md                    # 控制台使用说明
-    └── *.jpg / favicon.svg          # 界面预览与图标
 ```
 
 单图测试工具需要按脚本中的路径准备测试图片与权重；性能分析和日志回放工具用于局部诊断，并非上文 YOLO26 / Lite 对比的自动复现脚本。
