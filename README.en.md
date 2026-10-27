@@ -268,18 +268,33 @@ PC V2 saves weights and curves under `NetTrainer/pixel_classifier_v2/`. The dete
 
 ```text
 Universal-Autopilot/
-├── Models/                    # Shared PC V2 / Lite Detector definitions
-├── MyAutoPilot/                # Capture → perception → planning → control
-│   ├── main.py                # Runtime entry point and parameters
-│   ├── weights/               # Included inference weights
-│   ├── tests/                 # Offline tests, replay and profiling tools
-│   └── logs/                  # Generated at runtime; ignored by Git
-├── NetTrainer/                # Data loading, training, validation and plots
-│   ├── pixel_classifier/      # Earlier segmentation experiments
-│   ├── pixel_classifier_v2/   # Current dual-head segmentation training
-│   ├── object_detector/       # Three-class detection training
-│   └── datasets/              # Local training data; ignored by Git
-└── UI/                        # Local driving perception dashboard
+├── Models/                         # Shared PC V2 / Lite Detector definitions
+├── MyAutoPilot/                     # Capture → perception → planning → control
+│   ├── main.py                     # Runtime loop, parameters and module wiring
+│   ├── screen_capture.py           # MSS window / screen capture
+│   ├── scs_telemetry.py             # Read-only ego telemetry and validity status
+│   ├── pixel_classifier_v2.py       # Preprocessing, dual-head inference and mask fusion
+│   ├── object_detector.py          # Object detection, confidence filtering and NMS
+│   ├── mov_detector.py             # Object association, tracking IDs and relative motion
+│   ├── lane_refiner.py             # Lane sampling, fitting, availability and center points
+│   ├── route_planner.py            # Lane-centering / lane-change paths and state management
+│   ├── lane_change.py              # Lane-change requests, transition paths and exit conditions
+│   ├── steering.py                 # Speed-dependent image-space look-ahead steering
+│   ├── throttle.py                 # Target speed management and PI throttle
+│   ├── auto_brakes.py              # In-lane target selection, visual TTC and braking
+│   ├── input_controller.py         # Virtual gamepad steering, throttle and brake output
+│   ├── auto_config.py              # ETS2 steering setup and controls.sii backup
+│   ├── draw.py                     # Perception overlays, HUD and status display
+│   ├── logger.py                   # Per-frame JSONL logs and timestamps
+│   ├── weights/                    # Included inference weights
+│   ├── tests/                      # Offline tests, replay and profiling tools
+│   └── logs/                       # Generated at runtime; ignored by Git
+├── NetTrainer/                     # Data loading, training, validation and plots
+│   ├── pixel_classifier/           # Earlier segmentation experiments
+│   ├── pixel_classifier_v2/        # Current dual-head segmentation training
+│   ├── object_detector/            # Three-class detection training
+│   └── datasets/                   # Local training data; ignored by Git
+└── UI/                             # Local driving perception dashboard
 ```
 
 To understand a driving decision, start at [`main.py`](MyAutoPilot/main.py), trace [`lane_refiner.py`](MyAutoPilot/lane_refiner.py) → [`route_planner.py`](MyAutoPilot/route_planner.py) → [`steering.py`](MyAutoPilot/steering.py), then compare the log’s `path_points`, `steering_debug` and `brake_reason` fields.

@@ -268,18 +268,33 @@ PC V2 权重与曲线写入 `NetTrainer/pixel_classifier_v2/`；检测器的 `od
 
 ```text
 Universal-Autopilot/
-├── Models/                    # 共享网络定义：PC V2 / Lite Detector
-├── MyAutoPilot/                # 捕获 → 感知 → 规划 → 控制
-│   ├── main.py                # 实时运行入口与参数
-│   ├── weights/               # 已提供的推理权重
-│   ├── tests/                 # 离线测试、回放与性能分析工具
-│   └── logs/                  # 运行时生成，Git 忽略
-├── NetTrainer/                # 数据读取、训练、验证与可视化
-│   ├── pixel_classifier/      # 早期分割实验
-│   ├── pixel_classifier_v2/   # 当前双头分割训练
-│   ├── object_detector/       # 三类目标检测训练
-│   └── datasets/              # 本地训练数据，Git 忽略
-└── UI/                        # 本地驾驶感知控制台
+├── Models/                         # 共享网络定义：PC V2 / Lite Detector
+├── MyAutoPilot/                     # 捕获 → 感知 → 规划 → 控制
+│   ├── main.py                     # 实时循环、运行参数与模块编排
+│   ├── screen_capture.py           # MSS 窗口 / 屏幕捕获
+│   ├── scs_telemetry.py             # 只读获取自车遥测与有效状态
+│   ├── pixel_classifier_v2.py       # 图像预处理、双头分割与掩码合并
+│   ├── object_detector.py          # 目标检测、置信度筛选与 NMS
+│   ├── mov_detector.py             # 目标关联、跟踪 ID 与相对运动判断
+│   ├── lane_refiner.py             # 车道采样、拟合、可用性与中心点
+│   ├── route_planner.py            # 车道居中 / 换道路径选择与状态管理
+│   ├── lane_change.py              # 换道请求、过渡路径与退出条件
+│   ├── steering.py                 # 随车速调整的图像空间预瞄转向
+│   ├── throttle.py                 # 目标速度管理与 PI 油门控制
+│   ├── auto_brakes.py              # 本车道目标筛选、视觉 TTC 与制动
+│   ├── input_controller.py         # 虚拟手柄转向、油门与刹车输出
+│   ├── auto_config.py              # ETS2 转向配置与 controls.sii 备份
+│   ├── draw.py                     # 感知结果叠加、HUD 与状态显示
+│   ├── logger.py                   # 逐帧 JSONL 日志与时间记录
+│   ├── weights/                    # 已提供的推理权重
+│   ├── tests/                      # 离线测试、回放与性能分析工具
+│   └── logs/                       # 运行时生成，Git 忽略
+├── NetTrainer/                     # 数据读取、训练、验证与可视化
+│   ├── pixel_classifier/           # 早期分割实验
+│   ├── pixel_classifier_v2/        # 当前双头分割训练
+│   ├── object_detector/            # 三类目标检测训练
+│   └── datasets/                   # 本地训练数据，Git 忽略
+└── UI/                             # 本地驾驶感知控制台
 ```
 
 想读懂一次驾驶决策，可以从 [`main.py`](MyAutoPilot/main.py) 开始，沿着 [`lane_refiner.py`](MyAutoPilot/lane_refiner.py) → [`route_planner.py`](MyAutoPilot/route_planner.py) → [`steering.py`](MyAutoPilot/steering.py) 追踪数据，再对照日志中的 `path_points`、`steering_debug` 和 `brake_reason`。
