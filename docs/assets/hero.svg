@@ -58,7 +58,6 @@
       <path d="M 1114 420 C 1101 340 1080 251 1101 158" stroke="#71d4ca" stroke-opacity="0.06" stroke-width="30"/>
       <path d="M 1114 420 C 1101 340 1080 251 1101 158" stroke="#71d4ca" stroke-opacity="0.12" stroke-width="14"/>
       <path d="M 1114 420 C 1101 340 1080 251 1101 158" stroke="#71d4ca" stroke-width="3.5"/>
-      <path d="M 1094 174 L 1101 158 L 1106 176" stroke="#71d4ca" stroke-width="2"/>
 
       <rect x="1190" y="224" width="112" height="59" rx="2" stroke="#d6af77" stroke-opacity="0.65"/>
       <path d="M 1190 238 V 224 H 1204 M 1288 224 H 1302 V 238 M 1302 269 V 283 H 1288 M 1204 283 H 1190 V 269" stroke="#d6af77" stroke-width="2"/>

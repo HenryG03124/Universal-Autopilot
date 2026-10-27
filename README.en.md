@@ -14,7 +14,7 @@ A vision-based driving experiment · From model training to ETS2 control and fra
 ![Integration](https://img.shields.io/badge/Integration-ETS2-BBE58A?style=flat-square&labelColor=141A20)
 ![Status](https://img.shields.io/badge/Status-Experimental-87D7CB?style=flat-square&labelColor=141A20)
 
-[Highlights](#highlights) · [Pipeline](#pipeline) · [Quick start](#quickstart) · [Models & training](#training) · [Code map](#code-map)
+[Highlights](#highlights) · [Performance](#performance) · [Inputs & portability](#inputs) · [Pipeline](#pipeline) · [Quick start](#quickstart) · [Models & training](#training) · [Code map](#code-map)
 
 </div>
 
@@ -22,7 +22,7 @@ A vision-based driving experiment · From model training to ETS2 control and fra
 
 **Universal Autopilot (26SV)** implements a driving assistance pipeline with inspectable intermediate steps. Neural networks turn screen pixels into roads, lanes and objects. Planning and control turn those predictions into virtual gamepad inputs. Logs preserve the intermediate state so you can inspect how a steering or braking decision happened, one frame at a time.
 
-The current runtime integrates with **Euro Truck Simulator 2 on Windows**. The repository includes custom PyTorch networks, BDD100K training code, inference weights, a local dashboard and offline tests. “Universal” describes the direction of the project; other games need their own capture, telemetry and control integration.
+The current runtime integrates with **Euro Truck Simulator 2 on Windows**. The repository includes custom PyTorch networks, BDD100K training code, inference weights, a local dashboard and offline tests. Its core environment inputs are **a monocular view + the vehicle’s own telemetry**. It does not depend on the game’s internal road map, ground-truth lanes or other vehicles’ state, making perception and planning easier to reuse in other driving simulators.
 
 <a id="highlights"></a>
 
@@ -33,6 +33,19 @@ The current runtime integrates with **Euro Truck Simulator 2 on Windows**. The r
 | **Dual-head segmentation**: shared features with separate road / car and lane predictions | **Lane centering**: lane fitting, center paths and speed-dependent look-ahead steering | **Perception dashboard**: lanes, paths, objects and vehicle state in one view |
 | **Three-class detection**: pedestrians, cars and trucks, with NMS and object tracking | **Requested lane changes**: paths based on visible lanes and the current planning state | **Frame diagnostics**: steering, throttle, brake, telemetry and braking reasons |
 | **Common visual input**: RGB at 640 × 352; segmentation helps filter car detections | **Longitudinal control**: target-speed PI throttle and visual TTC braking | **Log replay**: select runs, scrub the timeline, change playback speed and export frames |
+
+<a id="performance"></a>
+
+### Lite: 50% higher frame rate
+
+On an **NVIDIA GeForce RTX 4080 Laptop GPU (12 GB VRAM)**, the author reports these measured runtime frame rates:
+
+| Detection setup | Measured frame rate | Relative to YOLO26 |
+| :--- | ---: | ---: |
+| YOLO26 | 8 FPS | 1.00× |
+| **Lite Detector** | **12 FPS** | **1.50×** |
+
+**8 → 12 FPS: 50% more frames processed per second.** Calculation: `(12 - 8) / 8 × 100% = 50%`. These are project runtime measurements on the hardware above, comparing frame rate rather than detection accuracy; they are not a standalone model inference benchmark.
 
 ### A real interface, beyond model outputs
 
@@ -52,13 +65,13 @@ The dashboard draws lanes, paths and detections in image coordinates and can als
 
 ```mermaid
 flowchart TD
-    A[ETS2 game view] --> B[MSS window capture]
+    A[ETS2 monocular game view] --> B[MSS window capture]
     B --> C[PC V2 road / lane segmentation]
     B --> D[Lite detection / tracking]
     C --> E[Lane refinement / path planning]
     E --> F[Steering / throttle / braking]
     D --> F
-    T[SCS vehicle telemetry] --> F
+    T[SCS ego telemetry] --> F
     F --> G[Virtual gamepad → ETS2]
     E -.-> H[JSONL logs / dashboard replay]
     F -.-> H
@@ -72,6 +85,54 @@ flowchart TD
 ```
 
 Vision handles road and object perception; SCS telemetry supplies vehicle state such as speed. Steering and lane-change paths use image coordinates, while TTC is estimated from changes in object bounding boxes.
+
+<a id="inputs"></a>
+
+## Monocular vision + ego telemetry, built for portability
+
+### What the runtime reads
+
+**Environment perception comes from one camera view; vehicle state comes from the ego vehicle’s telemetry.** The current implementation captures ETS2’s monocular game view from the screen. Models and post-processing estimate roads, lanes, object boxes and relative motion from those pixels. The runtime does not read internal road geometry, navigation routes, or ground-truth positions and velocities of other traffic participants, and requires no depth, radar or LiDAR input.
+
+| Input | Source and format | How it is used |
+| :--- | :--- | :--- |
+| **Monocular image** | [`screen_capture.py`](MyAutoPilot/screen_capture.py) uses MSS to capture a window’s client area or a selected monitor, producing a BGR image | Segmentation and detection each resize it to **640 × 352**, convert to RGB and construct a `[1, 3, 352, 640]` `float32` tensor with values in `[0, 1]` |
+| **Ego telemetry** | [`scs_telemetry.py`](MyAutoPilot/scs_telemetry.py) opens `Local\SCSTelemetry` read-only and decodes a 2,248-byte **revision 12** snapshot | Supplies the vehicle’s own state; steering and throttle currently use `speed_kmh`, while throttle also checks `status` |
+| **User input** | Windows arrow-key state and OpenCV’s `q` key | Requests lane changes, adjusts target speed and exits; these are user commands, not environmental ground truth |
+| **Models and parameters** | Two local `.pth` files plus thresholds, gains and configuration in the modules | Initialize inference, filter predictions and compute control without an online inference service |
+
+### Which ego-vehicle fields are read
+
+“Ego telemetry only” does not mean “speed only.” The reader also decodes the following vehicle state and writes the returned telemetry object to the run log:
+
+| Group | Main fields | Current use |
+| :--- | :--- | :--- |
+| **Speed** | `speed_mps`, `speed_kmh` | `speed_kmh` feeds look-ahead steering and PI throttle, and is displayed in the HUD / dashboard |
+| **Powertrain** | `engine_rpm`, `gear` | State display and logging |
+| **Driver input and feedback** | `user_steer`, `game_steer`, `user_steer_right`, `game_steer_right`, `throttle`, `brake`, `clutch`, `game_throttle`, `game_brake` | Record driver input and game feedback; `*_right` normalizes the steering sign to positive-right |
+| **Ego pose and motion** | `position_m`, `rotation_turns`, `local_velocity_mps`, `yaw_rate_ccw_rad_s`, `wheel_steering_deg` | Logging and diagnostics; the current planner does not use these position / orientation fields for map-based navigation |
+| **Validity and timing** | `status`, `revision`, `sdk_active`, `paused`, `sdk_timestamp_us`, `simulated_time_us`, `read_timestamp`, `age_s` | Check connection, protocol, pause state and freshness; invalid telemetry makes throttle return zero |
+
+The table lists the main fields after successful decoding; missing or incompatible telemetry returns a smaller status object. Telemetry feedback for throttle, brake and steering is separate from the controller’s computed commands in the log, so commands should not be treated as proof of execution.
+
+### What changes when porting
+
+The inputs are independent of ETS2’s world model, making the core vision, lane processing and planning logic reusable. Porting to another driving simulator mainly involves these boundaries:
+
+| Boundary | Current file | What to adapt |
+| :--- | :--- | :--- |
+| Image capture | [`screen_capture.py`](MyAutoPilot/screen_capture.py) | Connect the new window or monocular image source, and choose the camera view and capture region |
+| Ego state | [`scs_telemetry.py`](MyAutoPilot/scs_telemetry.py) | Map the new vehicle data interface to the existing fields, especially speed and validity status |
+| Control output | [`input_controller.py`](MyAutoPilot/input_controller.py) | Map steering, throttle and brake to the target simulator’s control interface |
+| Scene and vehicle tuning | [`main.py`](MyAutoPilot/main.py), [`steering.py`](MyAutoPilot/steering.py) and related modules | Adjust image sampling regions, thresholds and control gains, then evaluate the models in the new scene |
+
+ETS2 is the integration currently provided. A new environment still needs calibration and closed-loop validation; a substantial visual domain shift may require retraining.
+
+### What the dashboard reads
+
+The dashboard reads per-frame records from `MyAutoPilot/logs/*.jsonl`. Each record has `frame_id`, `elapsed`, `timestamp` and `data`; `data` contains lane points, paths, tracked objects, ego telemetry, target speed, control commands and diagnostics. Its live view comes from a separate screenshot of the `Result` window.
+
+**Logs contain neither original camera video nor full segmentation masks.** Historical replay shows recorded geometry and state. The dashboard does not read additional game-world data or send commands to the vehicle.
 
 <a id="quickstart"></a>
 
@@ -177,7 +238,16 @@ NetTrainer/datasets/
 └── processed_objdetect_ds/   # Detection manifests and labels
 ```
 
-Each `processed_*` training directory needs `train_pairs.csv` and `val_pairs.csv`. Lane preparation is available in [`prepare_pc_v2_bdd100k_ds.py`](NetTrainer/pixel_classifier_v2/prepare_pc_v2_bdd100k_ds.py); inspect its local input options with:
+Each `processed_*` training directory needs `train_pairs.csv` and `val_pairs.csv`. Training data is separate from runtime driving input; BDD100K annotations are used only for offline supervised training:
+
+| Task | Required CSV columns | Contents and outputs |
+| :--- | :--- | :--- |
+| Road / car and lane segmentation | `stem`, `image_path`, `mask_path` | Images and pixel labels; image shape `[3, 352, 640]`, mask shape `[352, 640]`. Road labels are 0 background / 1 road / 2 car; lane labels are 0 background / 1 lane. `255` marks ignored pixels |
+| Object detection | `stem`, `image_path`, `annotation_path`, `width`, `height` | Images and JSON containing `boxes` / `labels`; boxes in original image pixels are scaled with the image, producing `[N, 4]` pixel-space XYXY boxes and `[N]` labels |
+
+Images are RGB `float32` in `[0, 1]`. Segmentation masks use `int64` and nearest-neighbor resizing, without division by 255. Detection boxes use `float32` pixel coordinates, not normalized coordinates; labels use `int64`.
+
+Relative paths in a CSV resolve from the manifest’s directory. The detection reader supports BDD100K’s 10 annotation classes; Lite training maps person / car / truck to model classes 0 / 1 / 2. Lane preparation is available in [`prepare_pc_v2_bdd100k_ds.py`](NetTrainer/pixel_classifier_v2/prepare_pc_v2_bdd100k_ds.py); inspect its local input options with:
 
 ```powershell
 python -m NetTrainer.pixel_classifier_v2.prepare_pc_v2_bdd100k_ds --help
@@ -202,19 +272,69 @@ PC V2 saves weights and curves under `NetTrainer/pixel_classifier_v2/`. The dete
 
 ```text
 Universal-Autopilot/
-├── Models/                    # Shared PC V2 / Lite Detector definitions
-├── MyAutoPilot/                # Capture → perception → planning → control
-│   ├── main.py                # Runtime entry point and parameters
-│   ├── weights/               # Included inference weights
-│   ├── tests/                 # Offline tests, replay and profiling tools
-│   └── logs/                  # Generated at runtime; ignored by Git
-├── NetTrainer/                # Data loading, training, validation and plots
-│   ├── pixel_classifier/      # Earlier segmentation experiments
-│   ├── pixel_classifier_v2/   # Current dual-head segmentation training
-│   ├── object_detector/       # Three-class detection training
-│   └── datasets/              # Local training data; ignored by Git
-└── UI/                        # Local driving perception dashboard
+├── README.md / README.en.md         # Chinese and English project guides
+├── requirements.txt                # Inference, training and plotting dependencies
+├── docs/assets/hero.svg             # README banner
+├── Models/
+│   ├── pc_v2.py                     # Shared encoder, decoder and road / lane heads
+│   └── od_Lite.py                   # Lite three-class detection network
+├── MyAutoPilot/
+│   ├── main.py                      # Runtime loop, parameters and module wiring
+│   ├── screen_capture.py            # MSS window / screen capture and Win32 lookup
+│   ├── scs_telemetry.py              # Read-only SCS revision 12 ego telemetry
+│   ├── pixel_classifier_v2.py        # Preprocessing, dual-head inference and mask fusion
+│   ├── object_detector.py           # Detection, confidence filtering, NMS and mask filtering
+│   ├── mov_detector.py              # Image-space object association, IDs and relative motion
+│   ├── lane_refiner.py              # Lane sampling, fitting, availability and center points
+│   ├── route_planner.py             # Lane-centering / lane-change path and state selection
+│   ├── lane_change.py               # Lane-change requests, transition paths and exit conditions
+│   ├── steering.py                  # Speed-dependent image-space look-ahead steering
+│   ├── throttle.py                  # Target speed management and PI throttle
+│   ├── auto_brakes.py               # In-lane target selection, visual TTC and brake requests
+│   ├── input_controller.py          # Virtual Xbox 360 steering, throttle and brake output
+│   ├── auto_config.py               # Optional ETS2 steering setup and controls.sii backup
+│   ├── draw.py                      # Perception overlays and status in the Result window
+│   ├── logger.py                    # Per-frame JSONL logging with timestamps
+│   ├── weights/
+│   │   ├── pc_model_v2_bdd100k.pth   # Current segmentation weights
+│   │   ├── od_model_Lite.pth         # Current detector weights
+│   │   └── yolo26n.pt               # Retained YOLO26 weights; unused by the current entry point
+│   ├── tests/
+│   │   ├── test_*.py                # Offline lane, planning, control, setup and pipeline tests
+│   │   ├── profile_pipeline.py      # Stage timing without sending driving commands
+│   │   └── replay_steering.py       # Recompute steering from recorded perception and compare
+│   └── logs/                       # Generated at runtime; ignored by Git
+├── NetTrainer/
+│   ├── pixel_classifier_v2/
+│   │   ├── pc_v2_bdd100k_ds.py       # Road / lane CSV, image and mask loading
+│   │   ├── prepare_pc_v2_bdd100k_ds.py # BDD100K lane annotations to masks and manifests
+│   │   ├── train.py                 # Dual-task training, validation, saving and plotting
+│   │   ├── test.py                  # Single-image segmentation and mask export
+│   │   ├── pc_model_v2_bdd100k.pth   # Segmentation weights in the training directory
+│   │   └── figure_v2_bdd100k.png     # Saved training curves
+│   ├── object_detector/
+│   │   ├── bdd_objdetect_ds.py       # Images, detection JSON and variable-length target batches
+│   │   ├── train_Lite.py             # Three-class training, AP50 evaluation and saving
+│   │   ├── test_Lite.py              # Single-image detection visualization
+│   │   ├── figure_Lite.png           # Saved training curves
+│   │   └── README.md                 # Detection labels, input formats and losses
+│   ├── pixel_classifier/            # Earlier LiteCNN / ResNet / U-Net experiments
+│   │   ├── bdd_pc_ds.py              # Earlier road / car segmentation data loading
+│   │   ├── train_*.py / test_*.py     # Earlier training and single-image tests
+│   │   └── *.pth / *.png / *.jpg     # Saved weights, curves and examples
+│   └── datasets/                    # Local raw data and processed_* manifests; ignored by Git
+└── UI/
+    ├── server.py                    # Local HTTP server, log indexing and Result capture
+    ├── index.html                   # Dashboard page structure
+    ├── app.js                       # Data requests, perception rendering, state and replay
+    ├── style.css                    # Layout and light / dark themes
+    ├── start.bat                    # Windows launcher
+    ├── test_server.py               # Log reading, replay and path-boundary tests
+    ├── README.md                    # Dashboard guide
+    └── *.jpg / favicon.svg          # Interface previews and icon
 ```
+
+Single-image tools require test images and weights at the paths specified in their scripts. Profiling and replay tools support local diagnostics; they do not automatically reproduce the YOLO26 / Lite comparison above.
 
 To understand a driving decision, start at [`main.py`](MyAutoPilot/main.py), trace [`lane_refiner.py`](MyAutoPilot/lane_refiner.py) → [`route_planner.py`](MyAutoPilot/route_planner.py) → [`steering.py`](MyAutoPilot/steering.py), then compare the log’s `path_points`, `steering_debug` and `brake_reason` fields.
 
