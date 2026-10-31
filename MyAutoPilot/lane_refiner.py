@@ -6,7 +6,7 @@ init_y_window = 80 #px
 width = 640 #px
 max_center_diff_bottom = 20 #px
 max_abnoramal_width_percentage = 0.1
-max_lane_curvature = 0.002 #abs(d2x/dy2)
+max_lane_2nd_derivative_diff = 0.002 #abs(CL'' - CR'')
 select_lane_curvature = "min" #min / max
 
 #points: list[list[x , y] , list[x , y] , ...]
@@ -23,8 +23,10 @@ class LaneRefiner():
         self.neighbour_y_near = neighbour_y_near
         self.prev_lane_width = []
         self.tracking_frames = 0
-        self.abnormal_width = False
+        self.abnormal_state = False
         self.lane_curvature = {"CL" : None , "CR" : None , "NL" : None , "NR" : None}
+        self.lane_2nd_derivative = {"CL" : None , "CR" : None , "NL" : None , "NR" : None}
+        self.lane_2nd_derivative_diff = None
 
     def calculate_slope(self , points):
         slope = 0
@@ -37,14 +39,14 @@ class LaneRefiner():
         return slope
 
     def update_lane_width(self , cl_lane_points , cr_lane_points):
-        self.abnormal_width = False
+        self.abnormal_state = False
         cl_lane_yxdict = {y : x for x , y in cl_lane_points}
         cr_lane_yxdict = {y : x for x , y in cr_lane_points}
         common_y_values = sorted(cl_lane_yxdict.keys() & cr_lane_yxdict.keys() , reverse = True)
 
         prev_lane_width = [[cr_lane_yxdict[y] - cl_lane_yxdict[y] , y] for y in common_y_values]
         if len(prev_lane_width) < 2:
-            self.abnormal_width = True
+            self.abnormal_state = True
             return
         
         count = 0
@@ -53,10 +55,10 @@ class LaneRefiner():
             if prev_lane_width[i + 1][0] > prev_lane_width[i][0]:
                 count += 1
             if count > max_abnoramal_width:
-                self.abnormal_width = True
+                self.abnormal_state = True
                 break
 
-        if not self.abnormal_width and self.tracking_frames >= 5:
+        if not self.abnormal_state and self.tracking_frames >= 5 and (self.lane_2nd_derivative_diff is None or self.lane_2nd_derivative_diff <= max_lane_2nd_derivative_diff):
             self.prev_lane_width = prev_lane_width
 
     def sgl_lane_smapling(self , lane_x_indices , index , sides , sgl_lane_x_offset , min_neighbour_diff): #on single y value
@@ -225,6 +227,8 @@ class LaneRefiner():
 
     def fit_lane_points(self , sample_points , height , width , degree , sides):
         self.lane_curvature[sides] = None
+        self.lane_2nd_derivative[sides] = None
+        self.lane_2nd_derivative_diff = None
         if sides in ("NL" , "NR"):
             y_far = self.neighbour_y_far
             y_near = self.neighbour_y_near
@@ -248,6 +252,7 @@ class LaneRefiner():
         coefficients = np.polyfit(y_values , x_values , degree , w = weights)
         predicted_y_values = np.arange(y_far , y_near + 1)
         curvature = np.polyval(np.polyder(coefficients , 2) , predicted_y_values)
+        self.lane_2nd_derivative[sides] = curvature
         self.lane_curvature[sides] = float(np.max(np.abs(curvature)))
         predicted_x_values = np.polyval(coefficients , predicted_y_values)
         predicted_x_values = np.rint(predicted_x_values).astype(np.int32)
@@ -288,40 +293,47 @@ class LaneRefiner():
             return cl_lane_points , cr_lane_points , nl_lane_points , nr_lane_points
 
     def calculate_center_points(self , cl_lane_points , cr_lane_points):
+        self.lane_2nd_derivative_diff = None
         if cl_lane_points and cr_lane_points:
+            if self.lane_2nd_derivative["CL"] is not None and self.lane_2nd_derivative["CR"] is not None:
+                self.lane_2nd_derivative_diff = float(np.max(np.abs(self.lane_2nd_derivative["CL"] - self.lane_2nd_derivative["CR"])))
             self.update_lane_width(cl_lane_points , cr_lane_points)
 
         if not cl_lane_points and not cr_lane_points:
             self.status["center"] = "missing"
             return []
-        elif not cl_lane_points:
+        elif not cl_lane_points and not self.abnormal_state:
             cr_lane_yxdict = {y : x for x , y in cr_lane_points}
             prev_lane_width_yxdict = {y : x for x , y in self.prev_lane_width}
             common_y_values = sorted(prev_lane_width_yxdict.keys() & cr_lane_yxdict.keys() , reverse = True)
             center_points = [[(2 * cr_lane_yxdict[y] - prev_lane_width_yxdict[y]) // 2 , y] for y in common_y_values]
             self.status["center"] = "perdicted" if center_points else "missing"
-        elif not cr_lane_points:
+        elif not cr_lane_points and not self.abnormal_state:
             cl_lane_yxdict = {y : x for x , y in cl_lane_points}
             prev_lane_width_yxdict = {y : x for x , y in self.prev_lane_width}
             common_y_values = sorted(prev_lane_width_yxdict.keys() & cl_lane_yxdict.keys() , reverse = True)
             center_points = [[(2 * cl_lane_yxdict[y] + prev_lane_width_yxdict[y]) // 2 , y] for y in common_y_values]
             self.status["center"] = "predicted" if center_points else "missing"
-        elif self.abnormal_width and self.lane_curvature["CL"] is not None and self.lane_curvature["CR"] is not None and max(self.lane_curvature["CL"] , self.lane_curvature["CR"]) > max_lane_curvature:
-            if select_lane_curvature == "min":
-                sides = "L" if self.lane_curvature["CL"] <= self.lane_curvature["CR"] else "R"
-            else:
-                sides = "L" if self.lane_curvature["CL"] >= self.lane_curvature["CR"] else "R"
+        elif self.abnormal_state:
+            if self.lane_2nd_derivative_diff is not None and self.lane_2nd_derivative_diff > max_lane_2nd_derivative_diff:
+                if select_lane_curvature == "min":
+                    sides = "L" if self.lane_curvature["CL"] <= self.lane_curvature["CR"] else "R"
+                else:
+                    sides = "L" if self.lane_curvature["CL"] >= self.lane_curvature["CR"] else "R"
 
-            prev_lane_width_yxdict = {y : x for x , y in self.prev_lane_width}
-            if sides == "L":
-                cl_lane_yxdict = {y : x for x , y in cl_lane_points}
-                common_y_values = sorted(prev_lane_width_yxdict.keys() & cl_lane_yxdict.keys() , reverse = True)
-                center_points = [[(2 * cl_lane_yxdict[y] + prev_lane_width_yxdict[y]) // 2 , y] for y in common_y_values]
+                prev_lane_width_yxdict = {y : x for x , y in self.prev_lane_width}
+                if sides == "L":
+                    cl_lane_yxdict = {y : x for x , y in cl_lane_points}
+                    common_y_values = sorted(prev_lane_width_yxdict.keys() & cl_lane_yxdict.keys() , reverse = True)
+                    center_points = [[(2 * cl_lane_yxdict[y] + prev_lane_width_yxdict[y]) // 2 , y] for y in common_y_values]
+                else:
+                    cr_lane_yxdict = {y : x for x , y in cr_lane_points}
+                    common_y_values = sorted(prev_lane_width_yxdict.keys() & cr_lane_yxdict.keys() , reverse = True)
+                    center_points = [[(2 * cr_lane_yxdict[y] - prev_lane_width_yxdict[y]) // 2 , y] for y in common_y_values]
+                self.status["center"] = "predicted" if center_points else "missing"
             else:
-                cr_lane_yxdict = {y : x for x , y in cr_lane_points}
-                common_y_values = sorted(prev_lane_width_yxdict.keys() & cr_lane_yxdict.keys() , reverse = True)
-                center_points = [[(2 * cr_lane_yxdict[y] - prev_lane_width_yxdict[y]) // 2 , y] for y in common_y_values]
-            self.status["center"] = "predicted" if center_points else "missing"
+                self.status["center"] = "missing"
+                return []
         else:
             cl_lane_yxdict = {y : x for x , y in cl_lane_points}
             cr_lane_yxdict = {y : x for x , y in cr_lane_points}

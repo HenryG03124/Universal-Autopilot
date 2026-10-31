@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="470" viewBox="0 0 1440 470" role="img" aria-labelledby="title description">
+  <title id="title">Universal Autopilot — from pixels to driving decisions</title>
+  <desc id="description">26SV visual identity with an abstract road, lane boundaries, a planned path, and a detection box. Pipeline concept illustration.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#141b20"/>
+      <stop offset="1" stop-color="#080d11"/>
+    </linearGradient>
+    <linearGradient id="road" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#b9e58d" stop-opacity="0.01"/>
+      <stop offset="1" stop-color="#b9e58d" stop-opacity="0.09"/>
+    </linearGradient>
+    <linearGradient id="lane" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#b9e58d" stop-opacity="0.3"/>
+      <stop offset="1" stop-color="#b9e58d"/>
+    </linearGradient>
+    <linearGradient id="fade" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#28363e" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#28363e"/>
+      <stop offset="1" stop-color="#28363e" stop-opacity="0"/>
+    </linearGradient>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 H 0 V 40" fill="none" stroke="#a9c0cc" stroke-opacity="0.055"/>
+    </pattern>
+    <clipPath id="canvas">
+      <rect width="1440" height="470" rx="20"/>
+    </clipPath>
+  </defs>
+  <g clip-path="url(#canvas)">
+    <rect width="1440" height="470" fill="url(#background)"/>
+    <rect x="785" y="0" width="655" height="470" fill="url(#grid)"/>
+    <path d="M 790 0 V 470" stroke="#b9e58d" stroke-opacity="0.08"/>
+    <path d="M 815 148 H 1410 M 815 218 H 1410 M 815 308 H 1410 M 815 418 H 1410" stroke="url(#fade)" fill="none"/>
+
+    <g font-family="Arial, Helvetica, sans-serif">
+      <rect x="64" y="49" width="48" height="26" rx="5" fill="#b9e58d"/>
+      <text x="88" y="67" text-anchor="middle" fill="#101711" font-size="14" font-weight="700">26SV</text>
+      <text x="128" y="67" fill="#9daeb7" font-size="13" letter-spacing="2.7">VISION-BASED DRIVING</text>
+
+      <text x="60" y="178" fill="#f3f6f7" font-size="82" font-weight="700" letter-spacing="-3">UNIVERSAL</text>
+      <text x="60" y="267" fill="#b9e58d" font-size="82" font-weight="700" letter-spacing="-3">AUTOPILOT</text>
+      <text x="64" y="319" fill="#adbbc2" font-size="23" letter-spacing="0.1">From pixels to driving decisions.</text>
+
+      <path d="M 64 366 H 710" stroke="#2b373e"/>
+      <circle cx="70" cy="403" r="4" fill="#b9e58d"/>
+      <text x="86" y="408" fill="#a7b5bc" font-size="12" letter-spacing="2">PERCEPTION</text>
+      <text x="221" y="408" fill="#54656f" font-size="14">/</text>
+      <text x="247" y="408" fill="#a7b5bc" font-size="12" letter-spacing="2">PLANNING</text>
+      <text x="364" y="408" fill="#54656f" font-size="14">/</text>
+      <text x="390" y="408" fill="#a7b5bc" font-size="12" letter-spacing="2">CONTROL</text>
+    </g>
+
+    <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M 878 421 C 953 333 1023 250 1080 146 L 1122 146 C 1166 251 1262 338 1388 421 Z" fill="url(#road)" stroke="none"/>
+      <path d="M 878 421 C 953 333 1023 250 1080 146" stroke="url(#lane)" stroke-width="3"/>
+      <path d="M 1388 421 C 1262 338 1166 251 1122 146" stroke="url(#lane)" stroke-width="3"/>
+      <path d="M 803 326 C 933 268 1009 205 1066 146 M 1429 298 C 1279 240 1193 189 1135 146" stroke="#b9e58d" stroke-opacity="0.25" stroke-width="2" stroke-dasharray="10 10"/>
+      <path d="M 1114 420 C 1101 340 1080 251 1101 158" stroke="#71d4ca" stroke-opacity="0.06" stroke-width="30"/>
+      <path d="M 1114 420 C 1101 340 1080 251 1101 158" stroke="#71d4ca" stroke-opacity="0.12" stroke-width="14"/>
+      <path d="M 1114 420 C 1101 340 1080 251 1101 158" stroke="#71d4ca" stroke-width="3.5"/>
+
+      <rect x="1190" y="224" width="112" height="59" rx="2" stroke="#d6af77" stroke-opacity="0.65"/>
+      <path d="M 1190 238 V 224 H 1204 M 1288 224 H 1302 V 238 M 1302 269 V 283 H 1288 M 1204 283 H 1190 V 269" stroke="#d6af77" stroke-width="2"/>
+      <path d="M 1022 318 L 981 293 H 901" stroke="#566c72" stroke-width="1"/>
+      <circle cx="1022" cy="318" r="3" fill="#71d4ca" stroke="none"/>
+      <path d="M 1099 104 V 125 M 1088 114 H 1110" stroke="#4b626a"/>
+    </g>
+
+    <g font-family="Arial, Helvetica, sans-serif" font-size="11" letter-spacing="1.8">
+      <text x="835" y="66" fill="#6e858f">PIPELINE CONCEPT</text>
+      <text x="1190" y="213" fill="#d6af77" font-size="10">OBJECT</text>
+      <text x="901" y="282" fill="#7d9c9c" font-size="10">PLANNED PATH</text>
+      <text x="1377" y="444" text-anchor="end" fill="#526872" font-size="9">PIXELS → PATH → CONTROL</text>
+    </g>
+    <rect x="0.5" y="0.5" width="1439" height="469" rx="20" fill="none" stroke="#34424b" stroke-opacity="0.5"/>
+  </g>
+</svg>
